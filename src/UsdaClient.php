@@ -18,7 +18,9 @@ class UsdaClient {
 
     public function getMacros($name) {
         // ingredients
-        $stmt = $this->db->prepare('SELECT kcal_per_100g, protein_g, fat_g, carbs_g, fiber_g, sugar_g, saturated_fat_g 
+        $stmt = $this->db->prepare('SELECT kcal_per_100g,
+									protein_g, fat_g, carbs_g, 
+									fiber_g, sugar_g, saturated_fat_g 
             FROM ingredients
             WHERE name = ?');
         $stmt->execute(array($name));
