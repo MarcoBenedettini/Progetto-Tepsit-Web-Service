@@ -3,49 +3,17 @@
 require_once __DIR__ . '/Database.php';
 
 class RecipeRepository {
-
-    private PDO $db;
+    private $db;
 
     public function __construct() {
         $this->db = Database::get();
     }
 
-    /**
-     * Restituisce ricette candidate per un pasto.
-     * Filtra per meal_type, dieta, allergie e ricette già usate.
-     */
-    public function getCandidates(string $mealType, string $diet, array $allergies, array $usedIds): array {
+    public function getCandidates($mealType, $allergies, $usedIds) {
+        $params     = array("%$mealType%");
+        $conditions = array("r.meal_types LIKE ?");
 
-        $params     = ["%$mealType%"];
-        $conditions = ["r.meal_types LIKE ?"];
-
-        // -----------------------------
-        // FILTRI DIETA
-        // -----------------------------
-        switch ($diet) {
-            case 'vegan':
-                $conditions[] = "r.is_vegan = 1";
-                break;
-            case 'vegetarian':
-                $conditions[] = "r.is_vegetarian = 1";
-                break;
-            case 'gluten_free':
-                $conditions[] = "r.is_gluten_free = 1";
-                break;
-            case 'lactose_free':
-                $conditions[] = "r.is_dairy_free = 1";
-                break;
-            case 'pescatarian':
-                $conditions[] = "(r.is_vegetarian = 1 OR r.title LIKE '%fish%' OR r.title LIKE '%salmon%' OR r.title LIKE '%tuna%')";
-                break;
-            case 'none':
-            default:
-                break;
-        }
-
-        // -----------------------------
-        // FILTRI ALLERGIE
-        // -----------------------------
+        // Filtro per allergie escludi ricette che contengono l'allergene
         foreach ($allergies as $allergen) {
             $conditions[] = "r.id NOT IN (
                 SELECT ri.recipe_id
@@ -56,20 +24,16 @@ class RecipeRepository {
             $params[] = "%$allergen%";
         }
 
-        // -----------------------------
-        // ESCLUDI RICETTE GIÀ USATE
-        // -----------------------------
+        // Escludi ricette già usate
         if (!empty($usedIds)) {
             $placeholders = implode(',', array_fill(0, count($usedIds), '?'));
             $conditions[] = "r.id NOT IN ($placeholders)";
-            $params       = array_merge($params, $usedIds);
+            $params = array_merge($params, $usedIds);
         }
 
-        // -----------------------------
-        // QUERY FINALE (SQLite: RANDOM())
-        // -----------------------------
         $where = "WHERE " . implode(" AND ", $conditions);
 
+        // Query per calcolare kcal e proteine totali
         $sql = "
             SELECT
                 r.id,
@@ -91,17 +55,14 @@ class RecipeRepository {
         return $stmt->fetchAll();
     }
 
-    /**
-     * Restituisce ingredienti di una ricetta.
-     */
-    public function getIngredients(int $recipeId): array {
+    public function getIngredients($recipeId) {
         $stmt = $this->db->prepare("
             SELECT i.name, ri.quantity_g
             FROM recipe_ingredients ri
             JOIN ingredients i ON i.id = ri.ingredient_id
             WHERE ri.recipe_id = ?
         ");
-        $stmt->execute([$recipeId]);
+        $stmt->execute(array($recipeId));
         return $stmt->fetchAll();
     }
 }

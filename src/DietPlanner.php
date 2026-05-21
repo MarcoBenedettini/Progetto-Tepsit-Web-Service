@@ -4,47 +4,45 @@ require_once __DIR__ . '/RecipeRepository.php';
 
 class DietPlanner {
 
-    private RecipeRepository $repo;
+    private $repo;
 
-    private array $usedIds         = [];
-    private array $usedIngredients = [];
+    private $usedIds = array();
+    private $usedIngredients = array();
 
-    private const MEALS = [
+    // Distribuzione delle calorie nei pasti principali
+    private $meals = array(
         'breakfast' => 0.25,
-        'lunch'     => 0.40,
-        'dinner'    => 0.35,
-    ];
+        'lunch' => 0.40,
+        'dinner' => 0.35,
+    );
 
-    // Etichette italiane per il frontend
-    private const MEAL_LABELS = [
+    // Etichette in italiano
+    private $mealLabels = array(
         'breakfast' => 'Colazione',
-        'lunch'     => 'Pranzo',
-        'dinner'    => 'Cena',
-    ];
+        'lunch' => 'Pranzo',
+        'dinner' => 'Cena',
+    );
 
     public function __construct() {
         $this->repo = new RecipeRepository();
     }
 
-    public function build(array $params): array {
-
-        $plan          = [];
+    public function build($params) {
+        $plan = array();
         $totalCalories = 0.0;
-        $allIngredients = [];
+        $allIngredients = array();
 
         for ($day = 1; $day <= $params['days']; $day++) {
-
-            $dayMeals    = [];
+            $dayMeals = array();
             $dayCalories = 0.0;
-            $dayProtein  = 0.0;
+            $dayProtein = 0.0;
 
-            foreach (self::MEALS as $mealType => $quota) {
-
+            foreach ($this->meals as $mealType => $quota) {
                 $targetKcal = $params['calories'] * $quota;
 
+                // Ottiene i candidati filtrati per tipo pasto e allergie
                 $candidates = $this->repo->getCandidates(
                     $mealType,
-                    $params['diet'],
                     $params['allergies'],
                     $this->usedIds
                 );
@@ -52,73 +50,85 @@ class DietPlanner {
                 $picked = $this->pick($candidates);
 
                 if ($picked === null) {
-                    $dayMeals[] = [
-                        'meal'  => self::MEAL_LABELS[$mealType],
+                    $dayMeals[] = array(
+                        'meal' => $this->mealLabels[$mealType],
                         'error' => 'Nessuna ricetta disponibile',
-                    ];
+                    );
                     continue;
                 }
 
-                $factor = $picked['total_kcal'] > 0
-                    ? max(0.5, min(2.0, round($targetKcal / $picked['total_kcal'], 2)))
-                    : 1.0;
-
-                $calories = round($picked['total_kcal']    * $factor, 1);
-                $protein  = round($picked['total_protein'] * $factor, 1);
-
-                $this->usedIds[] = (int)$picked['id'];
-
-                $recipeIngredients = $this->repo->getIngredients((int)$picked['id']);
-                foreach ($recipeIngredients as $ing) {
-                    $this->usedIngredients[] = $ing['name'];
-                    $allIngredients[]        = $ing['name'];
+                // Calcola il fattore di porzione per avvicinarsi al target calorico
+                if ($picked['total_kcal'] > 0) {
+                    $raw = $targetKcal / $picked['total_kcal'];
+                    $raw = round($raw, 2);
+                    if ($raw < 0.5) {
+                        $factor = 0.5;
+                    } else if ($raw > 2.0) {
+                        $factor = 2.0;
+                    } else {
+                        $factor = $raw;
+                    }
+                } else {
+                    $factor = 1.0;
                 }
 
-                $dayMeals[] = [
-                    'meal'           => self::MEAL_LABELS[$mealType],
-                    'recipe'         => $picked['title'],
-                    'recipe_id'      => (int)$picked['id'],
-                    'portion_factor' => $factor,
-                    'calories'       => $calories,
-                    'protein_g'      => $protein,
-                    'cost_eur'       => 0.0,
-                ];
+                $calories = round($picked['total_kcal'] * $factor, 1);
+                $protein = round($picked['total_protein'] * $factor, 1);
 
-                $dayCalories += $calories;
-                $dayProtein  += $protein;
+                $this->usedIds[] = $picked['id'];
+
+                // Registra ingredienti usati
+                $recipeIngredients = $this->repo->getIngredients($picked['id']);
+                foreach ($recipeIngredients as $ing) {
+                    $this->usedIngredients[] = $ing['name'];
+                    $allIngredients[] = $ing['name'];
+                }
+
+                $dayMeals[] = array(
+                    'meal' => $this->mealLabels[$mealType],
+                    'recipe' => $picked['title'],
+                    'recipe_id' => $picked['id'],
+                    'portion_factor' => $factor,
+                    'calories' => $calories,
+                    'protein_g' => $protein,
+                );
+
+                $dayCalories = $dayCalories + $calories;
+                $dayProtein = $dayProtein + $protein;
             }
 
-            $totalCalories += $dayCalories;
+            $totalCalories = $totalCalories + $dayCalories;
 
-            $plan[] = [
-                'day'   => $day,
+            $plan[] = array(
+                'day' => $day,
                 'meals' => $dayMeals,
-                'totals' => [
-                    'calories'  => round($dayCalories, 1),
+                'totals' => array(
+                    'calories' => round($dayCalories, 1),
                     'protein_g' => round($dayProtein, 1),
-                    'cost_eur'  => 0.0,
-                ],
-            ];
+                ),
+            );
         }
 
-        $summary = [
-            'days'                 => $params['days'],
-            'unique_recipes_used'  => count($this->usedIds),
-            'unique_ingredients'   => count(array_unique($allIngredients)),
-            'avg_calories_per_day' => $params['days'] > 0
-                ? round($totalCalories / $params['days'], 1)
-                : 0,
-            'total_cost_eur'       => 0.0,
-        ];
+        if ($params['days'] > 0) {
+            $avgCalories = round($totalCalories / $params['days'], 1);
+        } else {
+            $avgCalories = 0;
+        }
 
-        return [$plan, $summary];
+        $summary = array(
+            'days' => $params['days'],
+            'unique_recipes_used' => count($this->usedIds),
+            'unique_ingredients' => count(array_unique($allIngredients)),
+            'avg_calories_per_day' => $avgCalories,
+        );
+
+        return array($plan, $summary);
     }
 
-    private function pick(array $candidates): ?array {
-
+    private function pick($candidates) {
         foreach ($candidates as $recipe) {
             $names = array_column(
-                $this->repo->getIngredients((int)$recipe['id']),
+                $this->repo->getIngredients($recipe['id']),
                 'name'
             );
             if (empty(array_intersect($names, $this->usedIngredients))) {
@@ -126,6 +136,10 @@ class DietPlanner {
             }
         }
 
-        return $candidates[0] ?? null;
+        if (isset($candidates[0])) {
+            return $candidates[0];
+        } else {
+            return null;
+        }
     }
 }

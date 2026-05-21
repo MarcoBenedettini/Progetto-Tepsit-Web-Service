@@ -23,7 +23,7 @@ form { background: #f7f7f7; border: 1px solid #ddd; padding: 18px; border-radius
 .row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
 label { font-size: .85rem; font-weight: bold; color: #444; }
-input[type="number"], select {
+input[type="number"] {
     padding: 6px 8px;
     border: 1px solid #bbb;
     border-radius: 3px;
@@ -77,37 +77,52 @@ pre { background: #f4f4f4; border: 1px solid #ddd; padding: 12px; font-size: .78
 </head>
 <body>
 <?php
+// Legge i parametri GET
 $submitted = isset($_GET['calories']);
 
-$cal       = (int)($_GET['calories'] ?? 2000);
-$diet      = (string)($_GET['diet'] ?? 'none');
-$budget    = (float)($_GET['budget'] ?? 0);
-$days      = (int)($_GET['days'] ?? 7);
-$allergies = (string)($_GET['allergies'] ?? '');
-
-$dietLabels = [
-    'none'         => 'Nessuna',
-    'vegan'        => 'Vegana',
-    'vegetarian'   => 'Vegetariana',
-    'lactose_free' => 'Senza lattosio',
-    'pescatarian'  => 'Pescatariana',
-];
-$allergyOptions  = ['glutine','lattosio','frutta secca','uova','pesce','crostacei','soia','sesamo'];
-$activeAllergies = array_filter(array_map('trim', explode(',', $allergies)));
-
-//Chiamata all'API
-$data = null;
-if ($submitted) {
-    $apiUrl = 'http://localhost/mondogustoso/api/plan.php?' . http_build_query($_GET);
-    $raw    = @file_get_contents($apiUrl);
-    $data   = $raw ? json_decode($raw, true) : null;
+if (isset($_GET['calories'])) {
+    $cal = $_GET['calories'];
+} else {
+    $cal = 2000;
 }
 
-$dayNames = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+if (isset($_GET['days'])) {
+    $days = $_GET['days'];
+} else {
+    $days = 7;
+}
+
+if (isset($_GET['allergies'])) {
+    $allergies = $_GET['allergies'];
+} else {
+    $allergies = '';
+}
+
+// Opzioni allergie
+$allergyOptions = array('glutine', 'lattosio', 'frutta secca', 'uova', 'pesce', 'crostacei', 'soia', 'sesamo');
+$activeAllergies = array_filter(array_map('trim', explode(',', $allergies)));
+
+// Chiamata all'API
+$data = null;
+if ($submitted) {
+    $apiUrl = 'http://localhost/mondogustoso/api/plan.php?' . http_build_query(array(
+        'calories' => $cal,
+        'days' => $days,
+        'allergies' => $allergies,
+    ));
+    $raw = @file_get_contents($apiUrl);
+    if ($raw) {
+        $data = json_decode($raw, true);
+    } else {
+        $data = null;
+    }
+}
+
+$dayNames = array('Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica');
 ?>
 
 <h1>Piano Pasti Settimanale</h1>
-<p class="sub">Inserisci le tue preferenze e genera un piano pasti personalizzato.</p>
+<p class="sub">Inserisci calorie, giorni e eventuali allergie per generare un piano personalizzato.</p>
 
 <form method="GET" action="">
     <div class="row">
@@ -115,19 +130,6 @@ $dayNames = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','D
             <label for="calories">Calorie giornaliere *</label>
             <input type="number" id="calories" name="calories" min="1000" max="5000" step="50" value="<?= $cal ?>" required>
             <span class="hint">Range: 1000 – 5000 kcal</span>
-        </div>
-        <div class="field">
-            <label for="diet">Tipo di dieta</label>
-            <select id="diet" name="diet">
-                <?php foreach ($dietLabels as $val => $lbl): ?>
-                <option value="<?= $val ?>" <?= $diet === $val ? 'selected' : '' ?>><?= $lbl ?></option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-        <div class="field">
-            <label for="budget">Budget (€/giorno)</label>
-            <input type="number" id="budget" name="budget" min="0" max="100" step="0.5" value="<?= $budget ?>">
-            <span class="hint">0 = nessun limite</span>
         </div>
         <div class="field">
             <label for="days">Numero di giorni *</label>
@@ -140,7 +142,18 @@ $dayNames = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','D
         <div class="checks">
             <?php foreach ($allergyOptions as $a): ?>
             <label>
-                <input type="checkbox" class="allergy-cb" value="<?= $a ?>" <?= in_array($a, $activeAllergies) ? 'checked' : '' ?>>
+                <input type="checkbox" class="allergy-cb" value="<?= $a ?>"
+                    <?php
+                    $found = false;
+                    foreach ($activeAllergies as $active) {
+                        if ($active === $a) {
+                            $found = true;
+                        }
+                    }
+                    if ($found) {
+                        echo 'checked';
+                    }
+                    ?>>
                 <?= ucfirst($a) ?>
             </label>
             <?php endforeach; ?>
@@ -158,14 +171,14 @@ $dayNames = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','D
 
 <?php else: ?>
 <h2>
-    Piano generato — <?= $days ?> <?= $days === 1 ? 'giorno' : 'giorni' ?>
-    (<?= htmlspecialchars($dietLabels[$diet] ?? $diet) ?>)
+    Piano generato — <?= $days ?> <?= $days == 1 ? 'giorno' : 'giorni' ?>
     <?php if ($allergies): ?> · intolleranze: <?= htmlspecialchars($allergies) ?><?php endif; ?>
 </h2>
 
+<!-- Riepilogo generale -->
 <table style="margin-bottom:18px;">
     <thead>
-        <tr><th>Giorni</th><th>Ricette uniche</th><th>Ingredienti distinti</th><th>kcal medie/giorno</th><th>Costo totale</th></tr>
+        <tr><th>Giorni</th><th>Ricette uniche</th><th>Ingredienti distinti</th><th>kcal medie/giorno</th></tr>
     </thead>
     <tbody>
         <tr>
@@ -173,34 +186,44 @@ $dayNames = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','D
             <td><?= $data['summary']['unique_recipes_used'] ?></td>
             <td><?= $data['summary']['unique_ingredients'] ?></td>
             <td><?= $data['summary']['avg_calories_per_day'] ?> kcal</td>
-            <td><?= number_format($data['summary']['total_cost_eur'], 2) ?> €</td>
         </tr>
     </tbody>
 </table>
 
+<!-- Dettaglio giorni -->
 <?php foreach ($data['plan'] as $day):
-    $name = $dayNames[$day['day'] - 1] ?? 'Giorno '.$day['day'];
+    $index = $day['day'] - 1;
+    if (isset($dayNames[$index])) {
+        $name = $dayNames[$index];
+    } else {
+        $name = 'Giorno ' . $day['day'];
+    }
 ?>
 <div class="day-section">
     <div class="day-header">
         <strong>Giorno <?= $day['day'] ?> — <?= $name ?></strong>
-        <span><?= $day['totals']['calories'] ?> kcal &nbsp;·&nbsp; <?= $day['totals']['protein_g'] ?> g proteine &nbsp;·&nbsp; <?= number_format($day['totals']['cost_eur'], 2) ?> €</span>
+        <span><?= $day['totals']['calories'] ?> kcal &nbsp;·&nbsp; <?= $day['totals']['protein_g'] ?> g proteine</span>
     </div>
     <div class="day-body">
         <table>
             <thead>
-                <tr><th>Pasto</th><th>Ricetta</th><th>Calorie</th><th>Proteine</th><th>Costo</th></tr>
+                <tr><th>Pasto</th><th>Ricetta</th><th>Calorie</th><th>Proteine</th></tr>
             </thead>
             <tbody>
             <?php foreach ($day['meals'] as $m):
-                $badge = match($m['meal']) { 'Colazione' => 'badge-col', 'Pranzo' => 'badge-pra', default => 'badge-cen' };
+                if ($m['meal'] === 'Colazione') {
+                    $badge = 'badge-col';
+                } else if ($m['meal'] === 'Pranzo') {
+                    $badge = 'badge-pra';
+                } else {
+                    $badge = 'badge-cen';
+                }
             ?>
             <tr>
-                <td><span class="badge <?= $badge ?>"><?= ucfirst($m['meal']) ?></span></td>
+                <td><span class="badge <?= $badge ?>"><?= htmlspecialchars($m['meal']) ?></span></td>
                 <td><?= htmlspecialchars($m['recipe']) ?></td>
                 <td><?= $m['calories'] ?> kcal</td>
                 <td><?= $m['protein_g'] ?> g</td>
-                <td><?= number_format($m['cost_eur'], 2) ?> €</td>
             </tr>
             <?php endforeach; ?>
             </tbody>
@@ -218,10 +241,11 @@ $dayNames = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','D
 <?php endif; ?>
 
 <script>
+// Sincronizza le checkbox con il campo hidden allergies
 document.querySelectorAll('.allergy-cb').forEach(cb =>
-    cb.addEventListener('change', () => {
+    cb.addEventListener('change', function() {
         document.getElementById('allergies').value =
-            [...document.querySelectorAll('.allergy-cb:checked')].map(c => c.value).join(',');
+            Array.from(document.querySelectorAll('.allergy-cb:checked')).map(c => c.value).join(',');
     })
 );
 </script>

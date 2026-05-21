@@ -1,5 +1,4 @@
 <?php
-
 require_once __DIR__ . '/../api/error.php';
 require_once __DIR__ . '/../src/Database.php';
 require_once __DIR__ . '/../src/Validator.php';
@@ -8,24 +7,30 @@ require_once __DIR__ . '/../src/DietPlanner.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-// Valida parametri
+// Validazione dei parametri
 try {
-    $params = (new Validator())->validate($_GET);
-} catch (InvalidArgumentException $e) {
+    $validator = new Validator();
+    $params = $validator->validate($_GET);
+} catch (Exception $e) {
     sendError($e->getMessage(), 400);
 }
 
-// Genera piano
+// Generazione del piano pasti
 try {
-    [$plan, $summary] = (new DietPlanner())->build($params);
-} catch (Throwable $e) {
-    sendError('Errore interno del server: ' . $e->getMessage(), 500);
+    $planner = new DietPlanner();
+    $result = $planner->build($params);
+    $plan = $result[0];
+    $summary = $result[1];
+} catch (Exception $e) {
+    sendError('Errore interno del server', 500);
 }
 
-// Risposta
-echo json_encode([
+// Risposta JSON
+$response = array(
     'success' => true,
     'inputs'  => $params,
     'summary' => $summary,
-    'plan'    => $plan,
-], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    'plan'    => $plan
+);
+
+echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
