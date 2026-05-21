@@ -46,13 +46,16 @@ Assicurati che `mod_rewrite` sia attivo in XAMPP e che `AllowOverride All` sia i
 ## Utilizzo
 
 ### Endpoint
+
+`GET /api/plan.php`
+
+
 | Parametro | Tipo | Default | Descrizione |
 | --- | --- | --- | --- |
 | **[calories](ca://s?q=Spiega_parametro_calories)** | int | 2000 | Range consigliato: **1000–5000** |
-| **[diet](ca://s?q=Spiega_parametro_diet)** | enum | none | Tipo di dieta: ``none``, ``vegan``, ``vegetarian``, ``lactose_free``, ``pescatarian`` |
-| **[allergies](ca://s?q=Spiega_parametro_allergies)** | csv | — | ``peanut,gluten`` |
-| **[budget](ca://s?q=Spiega_parametro_budget)** | float | 0 | **€/giorno** ``0`` = nessun limite. |
+| **[allergies](ca://s?q=Spiega_parametro_allergies)** | string | vuoto | ``peanut,gluten`` |
 | **[days](ca://s?q=Spiega_parametro_days)** | int | 7 | Range **1–7**. |
+| **[snacks](ca://s?q=Spiega_parametro_snacks)** | int | 0 | Se 1 lo include |
 
 
 ### Esempio
