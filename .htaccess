@@ -1,8 +1,6 @@
 Options -Indexes
 RewriteEngine On
-
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
-
 RewriteRule ^api/plan/?$ api/plan.php [L,QSA]
-RewriteRule ^.*$          public/index.php [L,QSA]
+RewriteRule ^.*$ public/index.php [L,QSA]

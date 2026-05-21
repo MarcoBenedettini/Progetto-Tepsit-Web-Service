@@ -1,34 +1,52 @@
 <?php
 class Validator {
-    public function validate(array $input): array {
-        $calories  = (int)   ($input['calories']  ?? 2000);
-        $diet      = (string)($input['diet']      ?? 'none');
-        $allergies = (string)($input['allergies'] ?? '');
-        $budget    = (float) ($input['budget']    ?? 0);
-        $days      = (int)   ($input['days']      ?? 7);
-        $snacks    = isset($input['snacks']) && $input['snacks'] == 1;
+    public function validate($input) {
+        $calories = 2000;
+		if (isset($input['calories'])) {
+    		$calories = $input['calories'];
+		}
 
-        if ($calories < 1000 || $calories > 5000)
-            throw new InvalidArgumentException('calories deve essere tra 1000 e 5000');
-        if (!in_array($diet, ['none', 'vegan', 'vegetarian', 'lactose_free', 'pescatarian'], true))
-            throw new InvalidArgumentException('diet non valido');
-        if ($days < 1 || $days > 7)
-            throw new InvalidArgumentException('days deve essere tra 1 e 7');
-        if ($budget < 0)
-            throw new InvalidArgumentException('budget non può essere negativo');
+		$allergies = '';
+		if (isset($input['allergies'])) {
+    		$allergies = $input['allergies'];
+		}
 
-        $allergyList = [];
+		$days = 7;
+		if (isset($input['days'])) {
+    		$days = $input['days'];
+		}
+	
+		$snacks = false;
+		if (isset($input['snacks']) && $input['snacks'] == 1) {
+    		$snacks = true;
+		}
+
+
+
+		if ($calories < 1000 || $calories > 5000) {
+    		throw new InvalidArgumentException('calories deve essere tra 1000 e 5000');
+		}
+		
+		if ($days < 1 || $days > 7) {
+    		throw new InvalidArgumentException('days deve essere tra 1 e 7');
+		}
+
+
+        // Trasforma la stringa delle allergie in un array di allergie
+        // ES --> "glutine,lattosio" → array('glutine', 'lattosio')
+        $allergyList = array();
         if ($allergies !== '') {
-            $allergyList = array_values(array_filter(array_map('trim', explode(',', $allergies))));
+            $temp = explode(',', $allergies);
+            $temp = array_map('trim', $temp);	// toglie spazi intorno
+            
+            $temp = array_filter($temp);	// rimuove elementi vuoti
+            
+            $allergyList = array_values($temp);	// reindicizza l'array
         }
-
-        return [
-            'calories'  => $calories,
-            'diet'      => $diet,
+        return array('calories' => $calories,
             'allergies' => $allergyList,
-            'budget'    => $budget,
-            'days'      => $days,
-            'snacks'    => $snacks,
-        ];
+            'days' => $days,
+            'snacks' => $snacks,
+        );
     }
 }

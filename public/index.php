@@ -18,7 +18,7 @@ body {
     padding: 2rem 1rem;
 }
 .container {
-    max-width: 1300px;
+    max-width: 1400px;
     margin: 0 auto;
 }
 .card {
@@ -204,6 +204,18 @@ tr:last-child td {
     border-left-color: #c00;
     color: #900;
 }
+.btn-instructions {
+    background: #e0e0e0;
+    color: #111;
+    border: none;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.7rem;
+    cursor: pointer;
+    border-radius: 2px;
+}
+.btn-instructions:hover {
+    background: #ccc;
+}
 details {
     margin-top: 1.5rem;
     border-top: 1px solid #eee;
@@ -261,30 +273,9 @@ footer {
                     <span class="hint">1000–5000 kcal</span>
                 </div>
                 <div class="field">
-                    <label>Dieta</label>
-                    <select name="diet">
-                        <?php
-                        $diets = [
-                            'none' => 'Nessuna restrizione',
-                            'vegetarian' => 'Vegetariana',
-                            'vegan' => 'Vegana',
-                            'lactose_free' => 'Senza lattosio',
-                            'pescatarian' => 'Pescatariana'
-                        ];
-                        $current = $_GET['diet'] ?? 'none';
-                        foreach ($diets as $val => $label): ?>
-                            <option value="<?= $val ?>" <?= $current === $val ? 'selected' : '' ?>><?= $label ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="field">
-                    <label>Budget (€/giorno)</label>
-                    <input type="number" name="budget" min="0" max="100" step="0.5" value="<?= htmlspecialchars($_GET['budget'] ?? 0) ?>">
-                    <span class="hint">0 = nessun limite</span>
-                </div>
-                <div class="field">
                     <label>Giorni</label>
                     <input type="number" name="days" min="1" max="7" step="1" value="<?= htmlspecialchars($_GET['days'] ?? 7) ?>" required>
+                    <span class="hint">Da 1 a 7</span>
                 </div>
             </div>
 
@@ -301,8 +292,8 @@ footer {
                 <label>Allergie / intolleranze</label>
                 <div class="check-group" id="allergyGroup">
                     <?php
-                    $allergeni = ['glutine', 'lattosio', 'frutta secca', 'uova', 'pesce', 'crostacei', 'soia', 'sesamo'];
-                    $attive = isset($_GET['allergies']) ? array_map('trim', explode(',', $_GET['allergies'])) : [];
+                    $allergeni = array('glutine', 'lattosio', 'frutta secca', 'uova', 'pesce', 'crostacei', 'soia', 'sesamo');
+                    $attive = isset($_GET['allergies']) ? array_map('trim', explode(',', $_GET['allergies'])) : array();
                     foreach ($allergeni as $a):
                     ?>
                         <label>
@@ -325,20 +316,35 @@ footer {
     $msgErrore = '';
 
     if ($inviato) {
+        // Prepara i parametri per l'API
+        $paramsApi = array();
+        $paramsApi['calories'] = (int)$_GET['calories'];
+        $paramsApi['days'] = (int)$_GET['days'];
+        if (isset($_GET['snacks']) && $_GET['snacks'] == 1) {
+            $paramsApi['snacks'] = 1;
+        }
+        if (!empty($_GET['allergies'])) {
+            $paramsApi['allergies'] = $_GET['allergies'];
+        }
+
+        // Costruzione dell'URL dell'API
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'];
-        $base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
-        $base = str_replace('/public', '', $base);
-        $apiUrl = $protocol . '://' . $host . $base . '/api/plan.php?' . http_build_query($_GET);
+        // Ottiene il percorso della cartella corrente (es. /meal-planner/mondo-gustoso/public)
+        $currentPath = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
+        // Risale alla cartella principale sostituendo '/public' con stringa vuota
+        $basePath = str_replace('/public', '', $currentPath);
+        $apiUrl = $protocol . '://' . $host . $basePath . '/api/plan.php?' . http_build_query($paramsApi);
 
-        $ctx = stream_context_create(['http' => ['timeout' => 30, 'ignore_errors' => true]]);
+        // Chiamata API con timeout e gestione errori silenziosa
+        $ctx = stream_context_create(array('http' => array('timeout' => 30, 'ignore_errors' => true)));
         $resp = @file_get_contents($apiUrl, false, $ctx);
 
         if ($resp !== false) {
             $dati = json_decode($resp, true);
             if (!isset($dati['success']) || $dati['success'] !== true) {
                 $errore = true;
-                $msgErrore = $dati['error'] ?? 'Errore sconosciuto';
+                $msgErrore = isset($dati['error']) ? $dati['error'] : 'Errore sconosciuto';
             }
         } else {
             $errore = true;
@@ -346,8 +352,8 @@ footer {
         }
     }
 
-    $nomiGiorni = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
-    $labelPasti = ['breakfast' => 'Colazione', 'lunch' => 'Pranzo', 'dinner' => 'Cena', 'snack' => 'Snack'];
+    $nomiGiorni = array('Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica');
+    $labelPasti = array('breakfast' => 'Colazione', 'lunch' => 'Pranzo', 'dinner' => 'Cena', 'snack' => 'Snack');
     ?>
 
     <?php if ($inviato && $errore): ?>
@@ -363,7 +369,6 @@ footer {
         <div class="summary-bar">
             <div>
                 <strong>Piano per <?= $sommario['days'] ?> <?= $sommario['days'] === 1 ? 'giorno' : 'giorni' ?></strong>
-                <span style="font-size:0.75rem; color:#777; margin-left:0.75rem;"><?= $diets[$input['diet']] ?? $input['diet'] ?></span>
                 <?php if (!empty($input['allergies'])): ?>
                     <span style="font-size:0.7rem; color:#999; margin-left:0.5rem;">(senza <?= implode(', ', $input['allergies']) ?>)</span>
                 <?php endif; ?>
@@ -405,12 +410,13 @@ footer {
                             <th>Fibre (g)</th>
                             <th>Zuccheri (g)</th>
                             <th>Grassi saturi (g)</th>
+                            <th>Istruzioni</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($giorno['meals'] as $pasto): 
                             $hasError = isset($pasto['error']) || !isset($pasto['recipe']);
-                            $recipeName = $pasto['recipe'] ?? ($pasto['error'] ?? 'Nessuna ricetta disponibile');
+                            $recipeName = isset($pasto['recipe']) ? $pasto['recipe'] : (isset($pasto['error']) ? $pasto['error'] : 'Nessuna ricetta disponibile');
                             $calories = isset($pasto['calories']) ? round($pasto['calories']) : '-';
                             $protein  = isset($pasto['protein_g']) ? round($pasto['protein_g']) : '-';
                             $fat      = isset($pasto['fat_g']) ? round($pasto['fat_g']) : '-';
@@ -418,7 +424,8 @@ footer {
                             $fiber    = isset($pasto['fiber_g']) ? number_format($pasto['fiber_g'], 1) : '-';
                             $sugar    = isset($pasto['sugar_g']) ? number_format($pasto['sugar_g'], 1) : '-';
                             $satFat   = isset($pasto['saturated_fat_g']) ? number_format($pasto['saturated_fat_g'], 1) : '-';
-                            $mealLabel = $labelPasti[$pasto['meal']] ?? ucfirst($pasto['meal'] ?? 'Pasti');
+                            $instructions = isset($pasto['instructions']) ? htmlspecialchars($pasto['instructions']) : '';
+                            $mealLabel = isset($labelPasti[$pasto['meal']]) ? $labelPasti[$pasto['meal']] : ucfirst($pasto['meal'] ?? 'Pasti');
                             $tagClass = $hasError ? 'meal-tag meal-tag-warning' : 'meal-tag';
                         ?>
                             <tr>
@@ -431,6 +438,13 @@ footer {
                                 <td><?= $fiber ?></td>
                                 <td><?= $sugar ?></td>
                                 <td><?= $satFat ?></td>
+                                <td>
+                                    <?php if ($instructions): ?>
+                                        <button class="btn-instructions" data-instructions="<?= $instructions ?>">Mostra</button>
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -456,21 +470,25 @@ footer {
 </div>
 
 <script>
-const container = document.getElementById('allergyGroup');
-const hiddenField = document.getElementById('allergiesField');
+var container = document.getElementById('allergyGroup');
+var hiddenField = document.getElementById('allergiesField');
 
 function aggiornaAllergie() {
-    const check = container.querySelectorAll('input[type="checkbox"]:checked');
-    const valori = Array.from(check).map(cb => cb.value);
+    var checks = container.querySelectorAll('input[type="checkbox"]:checked');
+    var valori = [];
+    for (var i = 0; i < checks.length; i++) {
+        valori.push(checks[i].value);
+    }
     hiddenField.value = valori.join(',');
 }
-container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    cb.addEventListener('change', aggiornaAllergie);
-});
+var checkboxes = container.querySelectorAll('input[type="checkbox"]');
+for (var i = 0; i < checkboxes.length; i++) {
+    checkboxes[i].addEventListener('change', aggiornaAllergie);
+}
 aggiornaAllergie();
 
-const form = document.getElementById('plannerForm');
-const btn = document.getElementById('submitBtn');
+var form = document.getElementById('plannerForm');
+var btn = document.getElementById('submitBtn');
 if (form) {
     form.addEventListener('submit', function() {
         if (btn) {
@@ -479,6 +497,12 @@ if (form) {
         }
     });
 }
+
+document.addEventListener('click', function(e) {
+    if (e.target.classList && e.target.classList.contains('btn-instructions')) {
+        alert(e.target.getAttribute('data-instructions'));
+    }
+});
 </script>
 </body>
 </html>
