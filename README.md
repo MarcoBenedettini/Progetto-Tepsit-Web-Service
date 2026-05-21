@@ -1,10 +1,10 @@
 # Mondo Gustoso Piano Pasti
 
-Progetto Web Service 
+Progetto scolastico Web Service REST per la creazione di piano pasti settimanale, che utilizza un database contenente ricette e valori nutrizionali dell'API 
 
 ## Requisiti
 
-- XAMPP (Apache, MySQL e PHP 8)
+- XAMPP (Apache, MySQL e PHP 8+)
 - Chiave API USDA FoodData Central (gratuita): https://fdc.nal.usda.gov/api-guide.html
 
 ## Installazione
@@ -14,49 +14,72 @@ Progetto Web Service
 git clone https://github.com/MarcoBenedettini/Progetto-Tepsit-Web-Service.git
 ```
 
-### 2. Configura il database
-Importare il dump `MondoGustoso.sql` in phpMyAdmin:
-```bash
-mysql -u root mondogustoso < MondoGustoso.sql
-```
-Il dump non è nel repository per via delle dimensioni (2GB). 
+### 2. Preparazione per la configurazione del database
+Avviare Apache e MySQL da XAMPP
 
-Successivamente creare le tabelle mancanti:
+Da terminale accedere al seguente percorso:
 ```bash
-mysql -u root mondogustoso < setup/create_tables.sql
+C:\xampp\mysql\bin
 ```
+
+Entra in MySQL:
+```bash
+mysql -u root -p
+```
+
+Crea il database vuoto:
+```bash
+CREATE DATABASE mondogustoso;
+```
+
+Successivamente eseguire per uscire:
+```bash
+EXIT;
+```
+#### Importazione del dump `MondoGustoso.sql`
+Scaricare il dump [MondoGustoso.sql](https://www.dropbox.com/scl/fi/muqeg75bletyhogryju2k/databaseRicette.zip?rlkey=3aly8bfxf4ikm38961cr3sp26&st=sfgu5zu8&dl=0) e decomprimilo
+
+
+Da terminale:
+```bash
+mysql -u root -p mondogustoso < C:\Users\%Appdata%\MondoGustoso.sql
+```
+Aspettare qualche minuto per il caricamento.
+
+In seguito creare le tabelle mancanti:
+copia il contenuto di `create_tables.txt` e incollalo su phpmyadmin in mondogustoso nella sezione SQL
 
 ### 3. Configura il progetto
-Copia il file di configurazione e inserisci i tuoi dati:
-```bash
-cp config.example.php config.php
-```
-Modifica `config.php` con la tua chiave USDA e le credenziali MySQL (vedi `config.example.php`)
+Rinonima `config.example.php` in `config.php` e aprilo modificandolo con la propria chiave USDA e le credenziali MySQL (vedi `config.example.php`)
 
 ### 4. Popola i valori nutrizionali
+Da terminale eseguire:
 ```bash
-php setup/fetch_nutrition.php
+C:\xampp\php\php.exe C:\xampp\htdocs\meal-planner\mondo-gustoso\setup\fetch_nutrition.php
 ```
 Questo script legge gli ingredienti dal DB, chiama USDA una volta per ognuno e salva i risultati localmente. Richiede tempo proporzionale al numero di ricette.
+
+Se bisogna aggiornare:
+```bash
+C:\xampp\php\php.exe C:\xampp\htdocs\meal-planner\mondo-gustoso\setup\fetch_nutrition.php --force-update
+```
 
 ### 5. Abilita mod_rewrite su Apache
 Assicurati che `mod_rewrite` sia attivo in XAMPP e che `AllowOverride All` sia impostato nel virtualhost.
 
 
-## Utilizzo
+## Utilizzo dell'API
+L'endpoint principale è `GET /meal-planner/mondo-gustoso/api/plan.php`
 
 ### Endpoint
-
-`GET /api/plan.php`
-
-
 | Parametro | Tipo | Default | Descrizione |
 | --- | --- | --- | --- |
 | **[calories](ca://s?q=Spiega_parametro_calories)** | int | 2000 | Range consigliato: **1000–5000** |
-| **[allergies](ca://s?q=Spiega_parametro_allergies)** | string | vuoto | ``peanut,gluten`` |
+| **[diet](ca://s?q=Spiega_parametro_diet)** | enum | none | Tipo di dieta: ``none``, ``vegan``, ``vegetarian``, ``lactose_free``, ``pescatarian`` |
+| **[allergies](ca://s?q=Spiega_parametro_allergies)** | csv | — | ``peanut,gluten`` |
+| **[budget](ca://s?q=Spiega_parametro_budget)** | float | 0 | **€/giorno** ``0`` = nessun limite (opzionale, messo come divertimento). |
 | **[days](ca://s?q=Spiega_parametro_days)** | int | 7 | Range **1–7**. |
-| **[snacks](ca://s?q=Spiega_parametro_snacks)** | int | 0 | Se 1 lo include |
-
+| **[snacks](ca://s?q=Spiega_parametro_snacks)** | int | 0 | Se 1, include uno snack aggiuntivo (riduce le quote degli altri pasti). |
 
 ### Esempio
 
@@ -64,7 +87,7 @@ Assicurati che `mod_rewrite` sia attivo in XAMPP e che `AllowOverride All` sia i
 curl "http://localhost/cartella_progetto/public/index.php?calories=1700&days=4&allergies=glutine%2Clattosio"
 ```
 
-### Risposta
+### Risposta JSON
 
 ```json
 {
