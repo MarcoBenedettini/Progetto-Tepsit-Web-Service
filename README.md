@@ -74,10 +74,8 @@ L'endpoint principale è `GET /meal-planner/mondo-gustoso/api/plan.php`
 ### Endpoint
 | Parametro | Tipo | Default | Descrizione |
 | --- | --- | --- | --- |
-| **[calories](ca://s?q=Spiega_parametro_calories)** | int | 2000 | Range consigliato: **1000–5000** |
-| **[diet](ca://s?q=Spiega_parametro_diet)** | enum | none | Tipo di dieta: ``none``, ``vegan``, ``vegetarian``, ``lactose_free``, ``pescatarian`` |
+| **[calories](ca://s?q=Spiega_parametro_calories)** | int | 2000 | Range: **1000–5000** |
 | **[allergies](ca://s?q=Spiega_parametro_allergies)** | csv | — | ``peanut,gluten`` |
-| **[budget](ca://s?q=Spiega_parametro_budget)** | float | 0 | **€/giorno** ``0`` = nessun limite (opzionale, messo come divertimento). |
 | **[days](ca://s?q=Spiega_parametro_days)** | int | 7 | Range **1–7**. |
 | **[snacks](ca://s?q=Spiega_parametro_snacks)** | int | 0 | Se 1, include uno snack aggiuntivo (riduce le quote degli altri pasti). |
 
